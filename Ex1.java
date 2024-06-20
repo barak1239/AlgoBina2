@@ -19,8 +19,8 @@ public class Ex1 {
 
             // Parse the XML file
             BayesianNetwork network = new BayesianNetwork(xmlFileName);
-            BayesBall bayesBall = new BayesBall(xmlFileName);
-            VariableElimination variableElimination = new VariableElimination(xmlFileName);
+            BayesBall bayesBall = new BayesBall(network);
+            VariableElimination variableElimination = new VariableElimination(network);
 
             // Handle the queries
             List<String> results = new ArrayList<>();

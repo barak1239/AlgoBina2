@@ -116,6 +116,9 @@ public class BayesianNetwork {
         visited.add(node);
         sortedNodes.add(node);
     }
+    public Map<String, Node> getNodes() {
+        return nodes;
+    }
 
 }
 class Node {
@@ -124,60 +127,59 @@ class Node {
     private List<Node> parents;
     private List<Node> children;
     private Map<List<String>, Double> cpt;
-        public Node(String name) {
+    public Node(String name) {
             this.name = name;
             this.outcomes = new ArrayList<>();
             this.parents = new ArrayList<>();
             this.children = new ArrayList<>();
             this.cpt = new HashMap<>();
-        }
-        public String getName() {
+    }
+    public String getName() {
             return name;
-        }
+    }
 
     public List<String> getOutcomes() {
-            return outcomes;
-        }
+        return outcomes;
+    }
+    public void addOutcome(String outcome) {
+        outcomes.add(outcome);
+    }
 
-        public void addOutcome(String outcome) {
-            outcomes.add(outcome);
-        }
+    public List<Node> getParents() {
+        return parents;
+    }
 
-        public List<Node> getParents() {
-            return parents;
+    public List<String> getParentsNames() {
+        List<String> names = new ArrayList<>();
+        for (Node parent : parents) {
+            names.add(parent.getName());
         }
+        return names;
+    }
 
-        public List<String> getParentsNames() {
-            List<String> names = new ArrayList<>();
-            for (Node parent : parents) {
-                names.add(parent.getName());
-            }
-            return names;
+    public void addParent(Node parent) {
+        parents.add(parent);
+    }
+    public List<Node> getChildren() {
+        return children;
+    }
+    public List<String> getChildrenNames() {
+        List<String> names = new ArrayList<>();
+        for (Node child : children) {
+            names.add(child.getName());
         }
+        return names;
+    }
+    public List<String> getVariables() {
+        return outcomes;
+    }
+    public void addChild(Node child) {
+        children.add(child);
+    }
 
-        public void addParent(Node parent) {
-            parents.add(parent);
-        }
-
-        public List<Node> getChildren() {
-            return children;
-        }
-
-        public List<String> getChildrenNames() {
-            List<String> names = new ArrayList<>();
-            for (Node child : children) {
-                names.add(child.getName());
-            }
-            return names;
-        }
-
-        public void addChild(Node child) {
-            children.add(child);
-        }
-
-        public Map<List<String>, Double> getCPT() {
-            return cpt;
-        }
+    public Map<List<String>, Double> getCPT() {
+        return cpt;
+    }
 
     public void setCPT(List<String> parents, String[] table) {
         int numParents = parents.size();
@@ -198,7 +200,15 @@ class Node {
             cpt.put(keyF, falseProbability);
         }
     }
+    public Factor toFactor() {
+        List<String> factorVariables = new ArrayList<>(parents.size() + 1);
+        for (Node parent : parents) {
+            factorVariables.add(parent.getName());
+        }
+        factorVariables.add(name);
 
+        return new Factor(factorVariables, cpt);
+    }
         // Other necessary methods
     }
 

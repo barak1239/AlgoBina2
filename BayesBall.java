@@ -3,8 +3,8 @@ import java.util.*;
 public class BayesBall {
     private BayesianNetwork network;
 
-    public BayesBall(String xmlFileName) throws Exception {
-        network = new BayesianNetwork(xmlFileName);
+    public BayesBall(BayesianNetwork network) {
+        this.network = network;
     }
 
     public String run(String query) {
