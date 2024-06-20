@@ -114,7 +114,10 @@ public class Factor {
             incrementAdditionCount();
         }
 
-        return new Factor(newVariables, newCpt);
+        Factor summedOutFactor = new Factor(newVariables, newCpt);
+        summedOutFactor.additionCount = this.additionCount;
+        summedOutFactor.multiplicationCount = this.multiplicationCount;
+        return summedOutFactor;
     }
 
     public Factor multiply(Factor other) {
@@ -152,17 +155,25 @@ public class Factor {
             }
         }
 
-        return new Factor(newVariables, newCpt);
+        Factor multipliedFactor = new Factor(newVariables, newCpt);
+        multipliedFactor.additionCount = this.additionCount + other.additionCount;
+        multipliedFactor.multiplicationCount = this.multiplicationCount + other.multiplicationCount;
+        return multipliedFactor;
     }
 
     public Factor normalize() {
         double sum = cpt.values().stream().mapToDouble(Double::doubleValue).sum();
-        incrementAdditionCount();  // count the additions for normalization
+        incrementAdditionCount();
+
         Map<List<String>, Double> newCpt = new HashMap<>();
         for (Map.Entry<List<String>, Double> entry : cpt.entrySet()) {
             newCpt.put(entry.getKey(), entry.getValue() / sum);
         }
-        return new Factor(variables, newCpt);
+
+        Factor normalizedFactor = new Factor(variables, newCpt);
+        normalizedFactor.additionCount = this.additionCount;
+        normalizedFactor.multiplicationCount = this.multiplicationCount;
+        return normalizedFactor;
     }
 
     public List<String> getVariables() {

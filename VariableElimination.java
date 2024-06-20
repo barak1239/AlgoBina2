@@ -15,31 +15,21 @@ public class VariableElimination {
         // Parse the VE query
         ParsedQuery parsedQuery = parseQuery(query);
 
-        // Generate initial factors considering the evidence
-        List<Factor> factors = initializeFactors(parsedQuery.getEvidence());
+        // Preprocess the network using BayesBall
+        Set<String> relevantVariables = preprocessNetwork(parsedQuery);
 
-        // Initialize BayesBall for dependency checking
-        BayesBall ball = new BayesBall(network);
-        List<String> eliminationOrder = new ArrayList<>(Arrays.asList(parsedQuery.getEliminationOrder()));
-
-        // Remove variables from elimination order that are not ancestors of the query variable or are independent of the query variable given the evidence
-        Iterator<String> iterator = eliminationOrder.iterator();
-        while (iterator.hasNext()) {
-            String var = iterator.next();
-            if (!isAncestor(var, parsedQuery.getQueryVariable(), parsedQuery.getEvidence()) ||
-                    ball.run(parsedQuery.getQueryVariable() + "-" + var + "|" + String.join(",", parsedQuery.getEvidence().keySet())).equals("yes")) {
-                factors.removeIf(factor -> factor.containsVariable(var));
-                iterator.remove();
-            }
-        }
+        // Generate initial factors considering the evidence and relevant variables
+        List<Factor> factors = initializeFactors(parsedQuery.getEvidence(), relevantVariables);
 
         // Process each variable in the elimination order
-        for (String var : eliminationOrder) {
-            List<Factor> relevantFactors = getRelevantFactors(factors, var);
-            factors.removeAll(relevantFactors);
-            Factor newFactor = multiplyAndSumOut(relevantFactors, var);
-            factors.add(newFactor);
-            factors.sort(Comparator.comparingInt(f -> f.getVariables().size()));
+        for (String var : parsedQuery.getEliminationOrder()) {
+            if (relevantVariables.contains(var)) {
+                List<Factor> relevantFactors = getRelevantFactors(factors, var);
+                factors.removeAll(relevantFactors);
+                Factor newFactor = multiplyAndSumOut(relevantFactors, var);
+                factors.add(newFactor);
+                factors.sort(Comparator.comparingInt(f -> f.getVariables().size()));
+            }
         }
 
         // Multiply all remaining factors to get the final result
@@ -100,22 +90,43 @@ public class VariableElimination {
         return new ParsedQuery(queryVar, queryValue, evidence, eliminationOrder);
     }
 
-    private List<Factor> initializeFactors(Map<String, String> evidence) {
+    private Set<String> preprocessNetwork(ParsedQuery parsedQuery) {
+        Set<String> relevantVariables = new HashSet<>();
+        relevantVariables.add(parsedQuery.getQueryVariable());
+        relevantVariables.addAll(parsedQuery.getEvidence().keySet());
+
+        BayesBall ball = new BayesBall(network);
+        for (String var : network.getNodes().keySet()) {
+            if (!relevantVariables.contains(var)) {
+                String evidenceStr = String.join(",", parsedQuery.getEvidence().keySet());
+                String queryStr = parsedQuery.getQueryVariable() + "-" + var + "|" + evidenceStr;
+                if (ball.run(queryStr).equals("no")) {
+                    relevantVariables.add(var);
+                }
+            }
+        }
+
+        return relevantVariables;
+    }
+
+    private List<Factor> initializeFactors(Map<String, String> evidence, Set<String> relevantVariables) {
         List<Factor> factors = new ArrayList<>();
 
         for (Node node : network.getNodes().values()) {
-            Map<String, String> nodeEvidence = new HashMap<>();
-            for (Node parent : node.getParents()) {
-                if (evidence.containsKey(parent.getName())) {
-                    nodeEvidence.put(parent.getName(), evidence.get(parent.getName()));
+            if (relevantVariables.contains(node.getName())) {
+                Map<String, String> nodeEvidence = new HashMap<>();
+                for (Node parent : node.getParents()) {
+                    if (evidence.containsKey(parent.getName())) {
+                        nodeEvidence.put(parent.getName(), evidence.get(parent.getName()));
+                    }
                 }
-            }
-            if (evidence.containsKey(node.getName())) {
-                nodeEvidence.put(node.getName(), evidence.get(node.getName()));
-            }
-            Factor factor = new Factor(node, nodeEvidence);
-            if (factor.getCpt().size() > 1) {
-                factors.add(factor);
+                if (evidence.containsKey(node.getName())) {
+                    nodeEvidence.put(node.getName(), evidence.get(node.getName()));
+                }
+                Factor factor = new Factor(node, nodeEvidence);
+                if (factor.getCpt().size() > 1) {
+                    factors.add(factor);
+                }
             }
         }
 
@@ -139,7 +150,9 @@ public class VariableElimination {
             result = result.multiply(factors.get(i));
             multiplicationCount += result.getMultiplicationCount();
         }
-        return result.sumOut(var);
+        Factor summedOutFactor = result.sumOut(var);
+        additionCount += summedOutFactor.getAdditionCount();
+        return summedOutFactor;
     }
 
     private Factor multiplyAllFactors(List<Factor> factors) {
@@ -153,33 +166,8 @@ public class VariableElimination {
 
     private Factor normalizeFactor(Factor factor) {
         Factor normalizedFactor = factor.normalize();
-        additionCount += factor.getAdditionCount();
+        additionCount += normalizedFactor.getAdditionCount();
         return normalizedFactor;
-    }
-
-    private boolean isAncestor(String hidden, String queryVar, Map<String, String> evidence) {
-        if (isAncestor(hidden, queryVar)) {
-            return true;
-        }
-        for (String var : evidence.keySet()) {
-            if (isAncestor(hidden, var)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isAncestor(String hidden, String current) {
-        if (hidden.equals(current)) {
-            return true;
-        }
-        Node currentNode = network.getNodeByName(current);
-        for (Node parent : currentNode.getParents()) {
-            if (isAncestor(hidden, parent.getName())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // Helper class to store parsed query details
