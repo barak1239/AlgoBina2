@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Factor {
     private List<String> variables;
@@ -12,7 +13,32 @@ public class Factor {
         this.additionCount = 0;
         this.multiplicationCount = 0;
     }
+    public Factor(Node node, Map<String, String> evidence) {
+        this.variables = new ArrayList<>(node.getParents().stream().map(Node::getName).collect(Collectors.toList()));
+        this.variables.add(node.getName());
+        this.cpt = new HashMap<>();
 
+        for (Map.Entry<List<String>, Double> entry : node.getCPT().entrySet()) {
+            List<String> assignment = new ArrayList<>(entry.getKey());
+            boolean consistent = true;
+            for (Node parent : node.getParents()) {
+                String parentValue = evidence.get(parent.getName());
+                if (parentValue != null && !assignment.get(variables.indexOf(parent.getName())).equals(parent.getName() + "=" + parentValue)) {
+                    consistent = false;
+                    break;
+                }
+            }
+            if (consistent) {
+                if (evidence.get(node.getName()) != null) {
+                    if (assignment.get(variables.indexOf(node.getName())).equals(node.getName() + "=" + evidence.get(node.getName()))) {
+                        this.cpt.put(assignment, entry.getValue());
+                    }
+                } else {
+                    this.cpt.put(assignment, entry.getValue());
+                }
+            }
+        }
+    }
     public Factor restrict(Map<String, String> evidenceMap) {
         Map<List<String>, Double> newCpt = new HashMap<>();
 
@@ -61,109 +87,14 @@ public class Factor {
         return variables.contains(variable);
     }
 
-    public Factor marginalize(String variable) {
-        List<String> newVariables = new ArrayList<>(variables);
-        newVariables.remove(variable);
-
-        Map<List<String>, Double> newCpt = new HashMap<>();
-
-        for (Map.Entry<List<String>, Double> entry : cpt.entrySet()) {
-            List<String> key = entry.getKey();
-            List<String> newKey = new ArrayList<>();
-
-            for (int i = 0; i < variables.size(); i++) {
-                if (!variables.get(i).equals(variable)) {
-                    newKey.add(key.get(i));
-                }
-            }
-
-            newCpt.merge(newKey, entry.getValue(), (a, b) -> {
-                additionCount++;
-                return a + b;
-            });
-        }
-
-        return new Factor(newVariables, newCpt);
+    public synchronized void incrementAdditionCount() {
+        additionCount++;
     }
 
-    public Factor join(Factor other) {
-        List<String> newVariables = new ArrayList<>(variables);
-        for (String variable : other.variables) {
-            if (!newVariables.contains(variable)) {
-                newVariables.add(variable);
-            }
-        }
-
-        Map<List<String>, Double> newCpt = new HashMap<>();
-
-        for (Map.Entry<List<String>, Double> entry1 : cpt.entrySet()) {
-            for (Map.Entry<List<String>, Double> entry2 : other.cpt.entrySet()) {
-                List<String> key1 = entry1.getKey();
-                List<String> key2 = entry2.getKey();
-
-                if (isConsistent(key1, key2)) {
-                    List<String> newKey = combineKeys(key1, key2, newVariables);
-                    newCpt.put(newKey, entry1.getValue() * entry2.getValue());
-                    multiplicationCount++;
-                }
-            }
-        }
-
-        return new Factor(newVariables, newCpt);
+    public synchronized void incrementMultiplicationCount() {
+        multiplicationCount++;
     }
 
-    private boolean isConsistent(List<String> key1, List<String> key2) {
-        Map<String, String> map1 = new HashMap<>();
-        for (String assignment : key1) {
-            String[] parts = assignment.split("=");
-            map1.put(parts[0], parts[1]);
-        }
-
-        Map<String, String> map2 = new HashMap<>();
-        for (String assignment : key2) {
-            String[] parts = assignment.split("=");
-            map2.put(parts[0], parts[1]);
-        }
-
-        for (String variable : map1.keySet()) {
-            if (map2.containsKey(variable) && !map1.get(variable).equals(map2.get(variable))) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private List<String> combineKeys(List<String> key1, List<String> key2, List<String> newVariables) {
-        Map<String, String> combinedMap = new HashMap<>();
-
-        for (String assignment : key1) {
-            String[] parts = assignment.split("=");
-            combinedMap.put(parts[0], parts[1]);
-        }
-
-        for (String assignment : key2) {
-            String[] parts = assignment.split("=");
-            combinedMap.put(parts[0], parts[1]);
-        }
-
-        List<String> newKey = new ArrayList<>();
-        for (String variable : newVariables) {
-            newKey.add(variable + "=" + combinedMap.get(variable));
-        }
-
-        return newKey;
-    }
-
-    public Factor normalize() {
-        double sum = cpt.values().stream().mapToDouble(Double::doubleValue).sum();
-        additionCount += cpt.size() - 1;  // count the additions for normalization
-        Map<List<String>, Double> newCpt = new HashMap<>();
-        for (Map.Entry<List<String>, Double> entry : cpt.entrySet()) {
-            newCpt.put(entry.getKey(), entry.getValue() / sum);
-        }
-        return new Factor(variables, newCpt);
-    }
     public Factor sumOut(String variable) {
         int index = variables.indexOf(variable);
         if (index == -1) {
@@ -180,7 +111,7 @@ public class Factor {
             newKey.remove(index);
 
             newCpt.put(newKey, newCpt.getOrDefault(newKey, 0.0) + entry.getValue());
-            additionCount++;
+            incrementAdditionCount();
         }
 
         return new Factor(newVariables, newCpt);
@@ -215,7 +146,7 @@ public class Factor {
                 }
                 if (match) {
                     double newValue = entry1.getValue() * entry2.getValue();
-                    multiplicationCount++;
+                    incrementMultiplicationCount();
                     newCpt.put(newKey, newCpt.getOrDefault(newKey, 0.0) + newValue);
                 }
             }
@@ -224,6 +155,15 @@ public class Factor {
         return new Factor(newVariables, newCpt);
     }
 
+    public Factor normalize() {
+        double sum = cpt.values().stream().mapToDouble(Double::doubleValue).sum();
+        incrementAdditionCount();  // count the additions for normalization
+        Map<List<String>, Double> newCpt = new HashMap<>();
+        for (Map.Entry<List<String>, Double> entry : cpt.entrySet()) {
+            newCpt.put(entry.getKey(), entry.getValue() / sum);
+        }
+        return new Factor(variables, newCpt);
+    }
 
     public List<String> getVariables() {
         return variables;
