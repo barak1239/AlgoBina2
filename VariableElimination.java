@@ -47,6 +47,7 @@ public class VariableElimination {
 
         // Normalize the result factor
         Factor normalizedResultFactor = resultFactor.normalize();
+        additionCount += normalizedResultFactor.getAdditionCount();
 
         // Extract the probability from the result factor
         double probability = extractProbability(normalizedResultFactor, queryVariables, evidenceMap);
@@ -88,7 +89,7 @@ public class VariableElimination {
         if (!factorsToJoin.isEmpty()) {
             Factor jointFactor = joinFactors(factorsToJoin);
             Factor marginalizedFactor = jointFactor.marginalize(variable);
-            additionCount += marginalizedFactor.getCpt().size();
+            additionCount += jointFactor.getCpt().size() - marginalizedFactor.getCpt().size(); // Count additions
             updatedFactors.add(marginalizedFactor);
         }
 
@@ -99,7 +100,7 @@ public class VariableElimination {
         Factor resultFactor = factors.get(0);
         for (int i = 1; i < factors.size(); i++) {
             resultFactor = resultFactor.join(factors.get(i));
-            multiplicationCount += resultFactor.getCpt().size();
+            multiplicationCount += resultFactor.getCpt().size(); // Count multiplications
         }
         return resultFactor;
     }
