@@ -28,6 +28,7 @@ public class Ex1 {
                 if (query.contains("-") && !query.startsWith("P(")) {
                     results.add(bayesBall.run(query));
                 } else if (query.startsWith("P(")) {
+                    System.out.println("proccessing query: " + query);
                     VariableElimination ve = new VariableElimination(network);
                     String result = ve.run(query);
                     results.add(result);

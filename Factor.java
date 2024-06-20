@@ -4,15 +4,12 @@ import java.util.stream.Collectors;
 public class Factor {
     private List<String> variables;
     private Map<List<String>, Double> cpt;
-    private int additionCount;
-    private int multiplicationCount;
 
     public Factor(List<String> variables, Map<List<String>, Double> cpt) {
         this.variables = variables;
         this.cpt = cpt;
-        this.additionCount = 0;
-        this.multiplicationCount = 0;
     }
+
     public Factor(Node node, Map<String, String> evidence) {
         this.variables = new ArrayList<>(node.getParents().stream().map(Node::getName).collect(Collectors.toList()));
         this.variables.add(node.getName());
@@ -39,6 +36,7 @@ public class Factor {
             }
         }
     }
+
     public Factor restrict(Map<String, String> evidenceMap) {
         Map<List<String>, Double> newCpt = new HashMap<>();
 
@@ -87,15 +85,7 @@ public class Factor {
         return variables.contains(variable);
     }
 
-    public synchronized void incrementAdditionCount() {
-        additionCount++;
-    }
-
-    public synchronized void incrementMultiplicationCount() {
-        multiplicationCount++;
-    }
-
-    public Factor sumOut(String variable) {
+    public int[] sumOut(String variable) {
         int index = variables.indexOf(variable);
         if (index == -1) {
             throw new IllegalArgumentException("Variable not found in factor.");
@@ -105,22 +95,27 @@ public class Factor {
         newVariables.remove(variable);
 
         Map<List<String>, Double> newCpt = new HashMap<>();
+        int additionCount = 0;
+
         for (Map.Entry<List<String>, Double> entry : cpt.entrySet()) {
             List<String> key = entry.getKey();
             List<String> newKey = new ArrayList<>(key);
             newKey.remove(index);
 
-            newCpt.put(newKey, newCpt.getOrDefault(newKey, 0.0) + entry.getValue());
-            incrementAdditionCount();
+            double value = entry.getValue();
+            if (newCpt.containsKey(newKey)) {
+                value += newCpt.get(newKey);
+                additionCount++;
+            }
+            newCpt.put(newKey, value);
         }
 
-        Factor summedOutFactor = new Factor(newVariables, newCpt);
-        summedOutFactor.additionCount = this.additionCount;
-        summedOutFactor.multiplicationCount = this.multiplicationCount;
-        return summedOutFactor;
+        this.variables = newVariables;
+        this.cpt = newCpt;
+        return new int[]{additionCount, 0};
     }
 
-    public Factor multiply(Factor other) {
+    public int[] multiply(Factor other) {
         List<String> newVariables = new ArrayList<>(variables);
         for (String var : other.variables) {
             if (!newVariables.contains(var)) {
@@ -129,6 +124,8 @@ public class Factor {
         }
 
         Map<List<String>, Double> newCpt = new HashMap<>();
+        int multiplicationCount = 0;
+
         for (Map.Entry<List<String>, Double> entry1 : cpt.entrySet()) {
             for (Map.Entry<List<String>, Double> entry2 : other.cpt.entrySet()) {
                 boolean match = true;
@@ -149,31 +146,28 @@ public class Factor {
                 }
                 if (match) {
                     double newValue = entry1.getValue() * entry2.getValue();
-                    incrementMultiplicationCount();
-                    newCpt.put(newKey, newCpt.getOrDefault(newKey, 0.0) + newValue);
+                    multiplicationCount++;
+                    newCpt.put(newKey, newValue);
                 }
             }
         }
 
-        Factor multipliedFactor = new Factor(newVariables, newCpt);
-        multipliedFactor.additionCount = this.additionCount + other.additionCount;
-        multipliedFactor.multiplicationCount = this.multiplicationCount + other.multiplicationCount;
-        return multipliedFactor;
+        this.variables = newVariables;
+        this.cpt = newCpt;
+        return new int[]{0, multiplicationCount};
     }
 
-    public Factor normalize() {
+    public int[] normalize() {
         double sum = cpt.values().stream().mapToDouble(Double::doubleValue).sum();
-        incrementAdditionCount();
+        int additionCount = cpt.size() - 1;
 
         Map<List<String>, Double> newCpt = new HashMap<>();
         for (Map.Entry<List<String>, Double> entry : cpt.entrySet()) {
             newCpt.put(entry.getKey(), entry.getValue() / sum);
         }
 
-        Factor normalizedFactor = new Factor(variables, newCpt);
-        normalizedFactor.additionCount = this.additionCount;
-        normalizedFactor.multiplicationCount = this.multiplicationCount;
-        return normalizedFactor;
+        this.cpt = newCpt;
+        return new int[]{additionCount, 0};
     }
 
     public List<String> getVariables() {
@@ -182,13 +176,5 @@ public class Factor {
 
     public Map<List<String>, Double> getCpt() {
         return cpt;
-    }
-
-    public int getAdditionCount() {
-        return additionCount;
-    }
-
-    public int getMultiplicationCount() {
-        return multiplicationCount;
     }
 }

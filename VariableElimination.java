@@ -2,47 +2,55 @@ import java.util.*;
 
 public class VariableElimination {
     private BayesianNetwork network;
-    private int additionCount;
-    private int multiplicationCount;
+    private int totalAdditionCount;
+    private int totalMultiplicationCount;
+    private boolean debug = true;
 
     public VariableElimination(BayesianNetwork network) {
         this.network = network;
-        this.additionCount = 0;
-        this.multiplicationCount = 0;
+    }
+
+    private void debugPrint(String message) {
+        if (debug) {
+            System.out.println(message);
+        }
     }
 
     public String run(String query) {
-        // Parse the VE query
-        ParsedQuery parsedQuery = parseQuery(query);
+        this.totalAdditionCount = 0;
+        this.totalMultiplicationCount = 0;
 
-        // Preprocess the network using BayesBall
+        debugPrint("Processing query: " + query);
+
+        ParsedQuery parsedQuery = parseQuery(query);
         Set<String> relevantVariables = preprocessNetwork(parsedQuery);
 
-        // Generate initial factors considering the evidence and relevant variables
+        debugPrint("Relevant variables: " + relevantVariables);
+
         List<Factor> factors = initializeFactors(parsedQuery.getEvidence(), relevantVariables);
 
-        // Process each variable in the elimination order
+        debugPrint("Initial factors: " + factors.size());
+
         for (String var : parsedQuery.getEliminationOrder()) {
-            if (relevantVariables.contains(var)) {
+            if (relevantVariables.contains(var) && !parsedQuery.getEvidence().containsKey(var) && !var.equals(parsedQuery.getQueryVariable())) {
+                debugPrint("Eliminating variable: " + var);
                 List<Factor> relevantFactors = getRelevantFactors(factors, var);
                 factors.removeAll(relevantFactors);
                 Factor newFactor = multiplyAndSumOut(relevantFactors, var);
                 factors.add(newFactor);
                 factors.sort(Comparator.comparingInt(f -> f.getVariables().size()));
+                debugPrint("Factors after elimination: " + factors.size());
             }
         }
 
-        // Multiply all remaining factors to get the final result
         Factor resultFactor = multiplyAllFactors(factors);
 
-        // Normalize the resulting factor if it contains more than one variable
         if (resultFactor.getVariables().size() > 1) {
+            debugPrint("Normalizing result factor");
             resultFactor = normalizeFactor(resultFactor);
         }
 
-        // Construct the key for the final lookup in the correct order
         List<String> finalKey = constructFinalKey(resultFactor, parsedQuery);
-
         Double resultValue = resultFactor.getCpt().get(finalKey);
 
         if (resultValue == null) {
@@ -50,11 +58,12 @@ public class VariableElimination {
             for (List<String> key : resultFactor.getCpt().keySet()) {
                 System.err.println("CPT key: " + key);
             }
-            return "0.00000," + additionCount + "," + multiplicationCount;
+            return "0.00000," + totalAdditionCount + "," + totalMultiplicationCount;
         }
 
-        double result = resultValue;
-        return String.format("%.5f,%d,%d", result, additionCount, multiplicationCount);
+        debugPrint("Final counts - Additions: " + totalAdditionCount + ", Multiplications: " + totalMultiplicationCount);
+
+        return String.format("%.5f,%d,%d", resultValue, totalAdditionCount, totalMultiplicationCount);
     }
 
     private List<String> constructFinalKey(Factor factor, ParsedQuery parsedQuery) {
@@ -95,17 +104,23 @@ public class VariableElimination {
         relevantVariables.add(parsedQuery.getQueryVariable());
         relevantVariables.addAll(parsedQuery.getEvidence().keySet());
 
-        BayesBall ball = new BayesBall(network);
-        for (String var : network.getNodes().keySet()) {
-            if (!relevantVariables.contains(var)) {
-                String evidenceStr = String.join(",", parsedQuery.getEvidence().keySet());
-                String queryStr = parsedQuery.getQueryVariable() + "-" + var + "|" + evidenceStr;
-                if (ball.run(queryStr).equals("no")) {
-                    relevantVariables.add(var);
+        BayesBall bayesBall = new BayesBall(network);
+
+        for (String variable : network.getNodes().keySet()) {
+            if (!relevantVariables.contains(variable)) {
+                String query = parsedQuery.getQueryVariable() + "-" + variable;
+                if (!parsedQuery.getEvidence().isEmpty()) {
+                    query += "|" + String.join(",", parsedQuery.getEvidence().keySet());
+                }
+
+                String result = bayesBall.run(query);
+                if (result.equals("no")) {
+                    relevantVariables.add(variable);
                 }
             }
         }
 
+        debugPrint("Relevant variables after Bayes Ball: " + relevantVariables);
         return relevantVariables;
     }
 
@@ -145,32 +160,38 @@ public class VariableElimination {
     }
 
     private Factor multiplyAndSumOut(List<Factor> factors, String var) {
+        debugPrint("Multiplying and summing out " + factors.size() + " factors for variable " + var);
         Factor result = factors.get(0);
         for (int i = 1; i < factors.size(); i++) {
-            result = result.multiply(factors.get(i));
-            multiplicationCount += result.getMultiplicationCount();
+            int[] counts = result.multiply(factors.get(i));
+            this.totalAdditionCount += counts[0];
+            this.totalMultiplicationCount += counts[1];
+            debugPrint("After multiplication " + i + ": Additions=" + totalAdditionCount + ", Multiplications=" + totalMultiplicationCount);
         }
-        Factor summedOutFactor = result.sumOut(var);
-        additionCount += summedOutFactor.getAdditionCount();
-        return summedOutFactor;
+        int[] sumOutCounts = result.sumOut(var);
+        this.totalAdditionCount += sumOutCounts[0];
+        this.totalMultiplicationCount += sumOutCounts[1];
+        debugPrint("After summing out: Additions=" + totalAdditionCount + ", Multiplications=" + totalMultiplicationCount);
+        return result;
     }
 
     private Factor multiplyAllFactors(List<Factor> factors) {
         Factor resultFactor = factors.get(0);
         for (int i = 1; i < factors.size(); i++) {
-            resultFactor = resultFactor.multiply(factors.get(i));
-            multiplicationCount += resultFactor.getMultiplicationCount();
+            int[] counts = resultFactor.multiply(factors.get(i));
+            this.totalAdditionCount += counts[0];
+            this.totalMultiplicationCount += counts[1];
         }
         return resultFactor;
     }
 
     private Factor normalizeFactor(Factor factor) {
-        Factor normalizedFactor = factor.normalize();
-        additionCount += normalizedFactor.getAdditionCount();
-        return normalizedFactor;
+        int[] counts = factor.normalize();
+        this.totalAdditionCount += counts[0];
+        this.totalMultiplicationCount += counts[1];
+        return factor;
     }
 
-    // Helper class to store parsed query details
     private class ParsedQuery {
         private String queryVariable;
         private String queryValue;

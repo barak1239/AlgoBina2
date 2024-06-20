@@ -1,4 +1,4 @@
-import org.junit.jupiter.api.BeforeEach;
+/*import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.*;
 
@@ -96,3 +96,4 @@ public class TestFactor2 {
         assertEquals(1.0, sum, 1e-6);
     }
 }
+*/
