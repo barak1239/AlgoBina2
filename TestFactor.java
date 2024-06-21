@@ -1,4 +1,4 @@
-/*import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.*;
 
@@ -48,39 +48,38 @@ public class TestFactor {
         assertFalse(factor.containsVariable("E"));
     }
 
-    @Test
+   @Test
     public void testSumOut() {
-        Factor summedOutFactor = factor.sumOut("A");
-        assertNotNull(summedOutFactor);
-        assertEquals(3, summedOutFactor.getVariables().size());
-        assertEquals(Arrays.asList("B", "C", "D"), summedOutFactor.getVariables());
+    int[] result = factor.sumOut("A");
+    assertNotNull(result);
+    assertEquals(3, factor.getVariables().size());
+    assertEquals(Arrays.asList("B", "C", "D"), factor.getVariables());
     }
 
     @Test
     public void testMultiply() {
-        List<String> variables2 = Arrays.asList("C", "D", "E");
-        Map<List<String>, Double> cpt2 = new HashMap<>();
-        cpt2.put(Arrays.asList("C=T", "D=T", "E=T"), 0.1);
-        cpt2.put(Arrays.asList("C=T", "D=T", "E=F"), 0.2);
-        cpt2.put(Arrays.asList("C=T", "D=F", "E=T"), 0.3);
-        cpt2.put(Arrays.asList("C=T", "D=F", "E=F"), 0.4);
-        cpt2.put(Arrays.asList("C=F", "D=T", "E=T"), 0.5);
-        cpt2.put(Arrays.asList("C=F", "D=T", "E=F"), 0.6);
-        cpt2.put(Arrays.asList("C=F", "D=F", "E=T"), 0.7);
-        cpt2.put(Arrays.asList("C=F", "D=F", "E=F"), 0.8);
+    List<String> variables2 = Arrays.asList("C", "D", "E");
+    Map<List<String>, Double> cpt2 = new HashMap<>();
+    cpt2.put(Arrays.asList("C=T", "D=T", "E=T"), 0.1);
+    cpt2.put(Arrays.asList("C=T", "D=T", "E=F"), 0.2);
+    cpt2.put(Arrays.asList("C=T", "D=F", "E=T"), 0.3);
+    cpt2.put(Arrays.asList("C=T", "D=F", "E=F"), 0.4);
+    cpt2.put(Arrays.asList("C=F", "D=T", "E=T"), 0.5);
+    cpt2.put(Arrays.asList("C=F", "D=T", "E=F"), 0.6);
+    cpt2.put(Arrays.asList("C=F", "D=F", "E=T"), 0.7);
+    cpt2.put(Arrays.asList("C=F", "D=F", "E=F"), 0.8);
 
-        Factor factor2 = new Factor(variables2, cpt2);
-        Factor multipliedFactor = factor.multiply(factor2);
-        assertNotNull(multipliedFactor);
-        assertEquals(5, multipliedFactor.getVariables().size());
+    Factor factor2 = new Factor(variables2, cpt2);
+    int[] result = factor.multiply(factor2);
+    assertNotNull(result);
+    assertEquals(5, factor.getVariables().size());
     }
 
-    @Test
+@Test
     public void testNormalize() {
-        Factor normalizedFactor = factor.normalize();
-        assertNotNull(normalizedFactor);
-        double sum = normalizedFactor.getCpt().values().stream().mapToDouble(Double::doubleValue).sum();
-        assertEquals(1.0, sum, 1e-6);
+    int[] result = factor.normalize();
+    assertNotNull(result);
+    double sum = factor.getCpt().values().stream().mapToDouble(Double::doubleValue).sum();
+    assertEquals(1.0, sum, 1e-6);
     }
 }
-*/

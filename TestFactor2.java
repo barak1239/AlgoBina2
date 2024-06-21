@@ -1,4 +1,4 @@
-/*import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.*;
 
@@ -29,7 +29,8 @@ public class TestFactor2 {
         Factor factorB = new Factor(variablesB, cptB);
 
         // Factor H is the result of multiplying A and B
-        factorH = factorA.multiply(factorB);
+        factorA.multiply(factorB);
+        factorH = factorA;
 
         // Creating Factor C
         List<String> variablesC = Arrays.asList("C", "D");
@@ -50,7 +51,8 @@ public class TestFactor2 {
         Factor factorD = new Factor(variablesD, cptD);
 
         // Factor G is the result of multiplying C and D
-        factorG = factorC.multiply(factorD);
+        factorC.multiply(factorD);
+        factorG = factorC;
     }
 
     @Test
@@ -82,18 +84,14 @@ public class TestFactor2 {
         assertTrue(factor.containsVariable(factor.getVariables().get(0)));
 
         // Test sumOut
-        Factor summedOutFactor = factor.sumOut(factor.getVariables().get(0));
-        assertNotNull(summedOutFactor);
+        factor.sumOut(factor.getVariables().get(0));
 
         // Test multiply
-        Factor multipliedFactor = factor.multiply(factor);
-        assertNotNull(multipliedFactor);
+        factor.multiply(factor);
 
         // Test normalize
-        Factor normalizedFactor = factor.normalize();
-        assertNotNull(normalizedFactor);
-        double sum = normalizedFactor.getCpt().values().stream().mapToDouble(Double::doubleValue).sum();
+        factor.normalize();
+        double sum = factor.getCpt().values().stream().mapToDouble(Double::doubleValue).sum();
         assertEquals(1.0, sum, 1e-6);
     }
 }
-*/
