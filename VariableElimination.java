@@ -104,9 +104,12 @@ public class VariableElimination {
         relevantVariables.add(parsedQuery.getQueryVariable());
         relevantVariables.addAll(parsedQuery.getEvidence().keySet());
 
+        // Find all ancestors of query variable and evidence variables
+        Set<String> ancestorVariables = findAncestors(relevantVariables);
+
         BayesBall bayesBall = new BayesBall(network);
 
-        for (String variable : network.getNodes().keySet()) {
+        for (String variable : ancestorVariables) {
             if (!relevantVariables.contains(variable)) {
                 String query = parsedQuery.getQueryVariable() + "-" + variable;
                 if (!parsedQuery.getEvidence().isEmpty()) {
@@ -120,8 +123,28 @@ public class VariableElimination {
             }
         }
 
-        debugPrint("Relevant variables after Bayes Ball: " + relevantVariables);
+        debugPrint("Relevant variables after Bayes Ball and ancestor filtering: " + relevantVariables);
         return relevantVariables;
+    }
+
+    private Set<String> findAncestors(Set<String> startNodes) {
+        Set<String> ancestors = new HashSet<>(startNodes);
+        Queue<String> queue = new LinkedList<>(startNodes);
+
+        while (!queue.isEmpty()) {
+            String currentNode = queue.poll();
+            Node node = network.getNodeByName(currentNode);
+
+            for (Node parent : node.getParents()) {
+                String parentName = parent.getName();
+                if (!ancestors.contains(parentName)) {
+                    ancestors.add(parentName);
+                    queue.add(parentName);
+                }
+            }
+        }
+
+        return ancestors;
     }
 
     private List<Factor> initializeFactors(Map<String, String> evidence, Set<String> relevantVariables) {

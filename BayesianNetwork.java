@@ -209,7 +209,6 @@ class Node {
 
         return new Factor(factorVariables, cpt);
     }
-        // Other necessary methods
-    }
+}
 
 
